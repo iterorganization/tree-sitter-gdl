@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build artifacts
+build/
+*.o
+*.so
+*.dylib
+*.dll
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+*.whl
+.eggs/
+.pytest_cache/
+
+# Rust
+target/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db

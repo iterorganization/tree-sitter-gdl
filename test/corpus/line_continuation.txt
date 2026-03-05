@@ -1,0 +1,34 @@
+================================================================================
+Line continuation in expression
+================================================================================
+
+result = first_value + $
+  second_value
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (binary_expression
+      (identifier)
+      (identifier))))
+
+================================================================================
+Multiple line continuations
+================================================================================
+
+result = a + $
+  b + $
+  c
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (identifier)
+        (identifier))
+      (identifier))))

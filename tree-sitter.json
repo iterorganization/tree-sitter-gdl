@@ -1,0 +1,35 @@
+{
+  "grammars": [
+    {
+      "name": "gdl",
+      "camelcase": "GDL",
+      "scope": "source.gdl",
+      "path": ".",
+      "file-types": ["pro"],
+      "injection-regex": "^(gdl|idl)$",
+      "highlights": "queries/highlights.scm",
+      "locals": "queries/locals.scm"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "GDL/IDL grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "ITER Organization"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/iterorganization/tree-sitter-gdl"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": false,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": false
+  }
+}

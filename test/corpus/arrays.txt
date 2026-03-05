@@ -1,0 +1,121 @@
+================================================================================
+Simple array subscript
+================================================================================
+
+x = arr[0]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (identifier)
+      (argument_list
+        (number_literal)))))
+
+================================================================================
+Array range subscript
+================================================================================
+
+x = arr[0:10]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (identifier)
+      (argument_list
+        (range_expression
+          (number_literal)
+          (number_literal))))))
+
+================================================================================
+Array range with step
+================================================================================
+
+x = arr[0:10:2]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (identifier)
+      (argument_list
+        (range_expression
+          (number_literal)
+          (number_literal)
+          (number_literal))))))
+
+================================================================================
+Array wildcard subscript
+================================================================================
+
+x = arr[*]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (identifier)
+      (argument_list
+        (wildcard)))))
+
+================================================================================
+Multi-dimensional subscript
+================================================================================
+
+x = arr[0:10, i]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (identifier)
+      (argument_list
+        (range_expression
+          (number_literal)
+          (number_literal))
+        (identifier)))))
+
+================================================================================
+Array assignment
+================================================================================
+
+arr[i] = value
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (subscript_expression
+      (identifier)
+      (argument_list
+        (identifier)))
+    right: (identifier)))
+
+================================================================================
+Range with wildcard end
+================================================================================
+
+x = arr[0:*]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (identifier)
+      (argument_list
+        (range_expression
+          (number_literal)
+          (wildcard))))))

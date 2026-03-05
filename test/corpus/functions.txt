@@ -1,0 +1,66 @@
+================================================================================
+Simple function
+================================================================================
+
+function compute, x
+  return, x * 2
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (return_statement
+        (binary_expression
+          left: (identifier)
+          right: (number_literal))))))
+
+================================================================================
+Function with no parameters
+================================================================================
+
+function get_value
+  return, 42
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (body
+      (return_statement
+        (number_literal)))))
+
+================================================================================
+Function with keywords
+================================================================================
+
+function transform, data, scale=scale, offset=offset
+  return, data * scale + offset
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameter_list
+      (identifier)
+      (keyword_parameter
+        (identifier)
+        (identifier))
+      (keyword_parameter
+        (identifier)
+        (identifier)))
+    (body
+      (return_statement
+        (binary_expression
+          left: (binary_expression
+            left: (identifier)
+            right: (identifier))
+          right: (identifier))))))

@@ -1,0 +1,21 @@
+[package]
+name = "tree-sitter-gdl"
+version = "0.1.0"
+description = "GDL/IDL grammar for tree-sitter"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/iterorganization/tree-sitter-gdl"
+edition = "2021"
+keywords = ["tree-sitter", "gdl", "idl", "parser"]
+categories = ["parsing", "text-processing"]
+autoexamples = false
+build = "bindings/rust/build.rs"
+
+[lib]
+path = "bindings/rust/lib.rs"
+
+[dependencies]
+tree-sitter-language = "0.1"
+
+[build-dependencies]
+cc = "1.2"

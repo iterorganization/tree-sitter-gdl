@@ -1,0 +1,103 @@
+================================================================================
+Anonymous structure
+================================================================================
+
+s = {x: 1, y: 2}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (struct_expression
+      (struct_field
+        name: (identifier)
+        (number_literal))
+      (struct_field
+        name: (identifier)
+        (number_literal)))))
+
+================================================================================
+Named structure
+================================================================================
+
+s = {point, x: 1.0, y: 2.0}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (struct_expression
+      name: (identifier)
+      (struct_field
+        name: (identifier)
+        (number_literal))
+      (struct_field
+        name: (identifier)
+        (number_literal)))))
+
+================================================================================
+Structure member access
+================================================================================
+
+val = obj.member
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (member_expression
+      (identifier)
+      (identifier))))
+
+================================================================================
+Chained member access
+================================================================================
+
+val = obj.sub.member
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (member_expression
+      (member_expression
+        (identifier)
+        (identifier))
+      (identifier))))
+
+================================================================================
+Object method call
+================================================================================
+
+result = obj->method()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (method_call
+      (identifier)
+      (identifier))))
+
+================================================================================
+Object method call with args
+================================================================================
+
+result = obj->compute(x, y)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (method_call
+      (identifier)
+      (identifier)
+      (argument_list
+        (identifier)
+        (identifier)))))

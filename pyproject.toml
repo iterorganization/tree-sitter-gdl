@@ -1,0 +1,32 @@
+[project]
+name = "tree-sitter-gdl"
+dynamic = ["version"]
+description = "GDL/IDL grammar for tree-sitter"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+readme = "README.md"
+keywords = ["tree-sitter", "gdl", "idl", "parser", "scientific-computing"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Text Processing :: Linguistic",
+]
+
+[project.urls]
+Homepage = "https://github.com/iterorganization/tree-sitter-gdl"
+Repository = "https://github.com/iterorganization/tree-sitter-gdl"
+Issues = "https://github.com/iterorganization/tree-sitter-gdl/issues"
+
+[build-system]
+requires = ["setuptools>=75.0", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"

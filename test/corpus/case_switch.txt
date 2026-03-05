@@ -1,0 +1,100 @@
+================================================================================
+Case statement
+================================================================================
+
+case mode of
+  1: print, 'First'
+  2: print, 'Second'
+  else: print, 'Default'
+endcase
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (case_statement
+    (identifier)
+    (case_clause
+      (number_literal)
+      (procedure_call
+        (identifier)
+        (argument_list
+          (string_literal))))
+    (case_clause
+      (number_literal)
+      (procedure_call
+        (identifier)
+        (argument_list
+          (string_literal))))
+    (case_else_clause
+      (procedure_call
+        (identifier)
+        (argument_list
+          (string_literal))))))
+
+================================================================================
+Case with begin blocks
+================================================================================
+
+case mode of
+  1: begin
+    x = 1
+    y = 2
+  end
+  2: begin
+    x = 3
+  end
+endcase
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (case_statement
+    (identifier)
+    (case_clause
+      (number_literal)
+      (body
+        (assignment
+          (identifier)
+          (number_literal))
+        (assignment
+          (identifier)
+          (number_literal))))
+    (case_clause
+      (number_literal)
+      (body
+        (assignment
+          (identifier)
+          (number_literal))))))
+
+================================================================================
+Switch statement
+================================================================================
+
+switch mode of
+  1: print, 'First'
+  2: print, 'Second'
+  else: print, 'Default'
+endswitch
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (switch_statement
+    (identifier)
+    (case_clause
+      (number_literal)
+      (procedure_call
+        (identifier)
+        (argument_list
+          (string_literal))))
+    (case_clause
+      (number_literal)
+      (procedure_call
+        (identifier)
+        (argument_list
+          (string_literal))))
+    (case_else_clause
+      (procedure_call
+        (identifier)
+        (argument_list
+          (string_literal))))))

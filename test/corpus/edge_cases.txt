@@ -1,0 +1,241 @@
+================================================================================
+Nested if/then/else blocks
+================================================================================
+
+if a gt 0 then begin
+  if b gt 0 then begin
+    x = 1
+  endif else begin
+    x = 2
+  endelse
+endif
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (if_statement
+    condition: (binary_expression
+      left: (identifier)
+      right: (number_literal))
+    (body
+      (if_statement
+        condition: (binary_expression
+          left: (identifier)
+          right: (number_literal))
+        (body
+          (assignment
+            left: (identifier)
+            right: (number_literal)))
+        (else_clause
+          (body
+            (assignment
+              left: (identifier)
+              right: (number_literal))))))))
+
+================================================================================
+Line continuation in procedure call
+================================================================================
+
+print, 'first', $
+  'second', $
+  'third'
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_call
+    (identifier)
+    (argument_list
+      (string_literal)
+      (string_literal)
+      (string_literal))))
+
+================================================================================
+Line continuation in if condition
+================================================================================
+
+if a gt 0 $
+  and b gt 0 then $
+  print, 'both positive'
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (if_statement
+    condition: (binary_expression
+      left: (binary_expression
+        left: (identifier)
+        right: (number_literal))
+      right: (binary_expression
+        left: (identifier)
+        right: (number_literal)))
+    (procedure_call
+      (identifier)
+      (argument_list
+        (string_literal)))))
+
+================================================================================
+Nested for loops
+================================================================================
+
+for i = 0, 9 do begin
+  for j = 0, 9 do begin
+    matrix[i, j] = i * 10 + j
+  endfor
+endfor
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (for_statement
+    (identifier)
+    (number_literal)
+    (number_literal)
+    (body
+      (for_statement
+        (identifier)
+        (number_literal)
+        (number_literal)
+        (body
+          (assignment
+            left: (subscript_expression
+              (identifier)
+              (argument_list
+                (identifier)
+                (identifier)))
+            right: (binary_expression
+              left: (binary_expression
+                left: (identifier)
+                right: (number_literal))
+              right: (identifier))))))))
+
+================================================================================
+Compile opt statement
+================================================================================
+
+compile_opt idl2, strictarr
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (compile_opt
+    (identifier)
+    (identifier)))
+
+================================================================================
+On_ioerror statement
+================================================================================
+
+on_ioerror, bad_file
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (on_ioerror
+    (identifier)))
+
+================================================================================
+Mixed inline and block if
+================================================================================
+
+if a eq 1 then x = 1 else begin
+  x = 2
+  y = 3
+endelse
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (if_statement
+    condition: (binary_expression
+      left: (identifier)
+      right: (number_literal))
+    (assignment
+      left: (identifier)
+      right: (number_literal))
+    (else_clause
+      (body
+        (assignment
+          left: (identifier)
+          right: (number_literal))
+        (assignment
+          left: (identifier)
+          right: (number_literal))))))
+
+================================================================================
+Batch include
+================================================================================
+
+@setup_routines
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (batch_include
+    (identifier)))
+
+================================================================================
+Return with value
+================================================================================
+
+function compute, x
+  return, x * 2
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (return_statement
+        (binary_expression
+          left: (identifier)
+          right: (number_literal))))))
+
+================================================================================
+Keyword shorthand with slash
+================================================================================
+
+plot, data, /nodata, color=255
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_call
+    (identifier)
+    (argument_list
+      (identifier)
+      (keyword_argument
+        (identifier))
+      (keyword_argument
+        (identifier)
+        (number_literal)))))
+
+================================================================================
+Complex expression with parentheses
+================================================================================
+
+result = (a + b) * (c - d) / (e ^ 2)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (binary_expression
+      left: (binary_expression
+        left: (parenthesized_expression
+          (binary_expression
+            left: (identifier)
+            right: (identifier)))
+        right: (parenthesized_expression
+          (binary_expression
+            left: (identifier)
+            right: (identifier))))
+      right: (parenthesized_expression
+        (binary_expression
+          left: (identifier)
+          right: (number_literal))))))

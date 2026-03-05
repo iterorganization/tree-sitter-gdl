@@ -1,0 +1,88 @@
+================================================================================
+Simple procedure
+================================================================================
+
+pro greet, name
+  print, 'Hello, ' + name
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (procedure_call
+        (identifier)
+        (argument_list
+          (binary_expression
+            left: (string_literal)
+            right: (identifier)))))))
+
+================================================================================
+Procedure with no parameters
+================================================================================
+
+pro setup
+  x = 1
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (assignment
+        left: (identifier)
+        right: (number_literal)))))
+
+================================================================================
+Procedure with keywords
+================================================================================
+
+pro configure, device, verbose=verbose, timeout=timeout
+  x = 1
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier)
+      (keyword_parameter
+        (identifier)
+        (identifier))
+      (keyword_parameter
+        (identifier)
+        (identifier)))
+    (body
+      (assignment
+        left: (identifier)
+        right: (number_literal)))))
+
+================================================================================
+Procedure with extra keyword
+================================================================================
+
+pro setup, _extra=extra
+  x = 1
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (keyword_parameter
+        (identifier)
+        (identifier)))
+    (body
+      (assignment
+        left: (identifier)
+        right: (number_literal)))))

@@ -1,0 +1,148 @@
+================================================================================
+For loop
+================================================================================
+
+for i = 0, n - 1 do begin
+  values[i] = compute(i)
+endfor
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (for_statement
+    (identifier)
+    (number_literal)
+    (binary_expression
+      (identifier)
+      (number_literal))
+    (body
+      (assignment
+        (subscript_expression
+          (identifier)
+          (argument_list
+            (identifier)))
+        (call_expression
+          (identifier)
+          (argument_list
+            (identifier)))))))
+
+================================================================================
+For loop inline
+================================================================================
+
+for i = 0, 9 do print, i
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (for_statement
+    (identifier)
+    (number_literal)
+    (number_literal)
+    (procedure_call
+      (identifier)
+      (argument_list
+        (identifier)))))
+
+================================================================================
+For loop with step
+================================================================================
+
+for i = 0, 100, 2 do begin
+  x = i
+endfor
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (for_statement
+    (identifier)
+    (number_literal)
+    (number_literal)
+    (number_literal)
+    (body
+      (assignment
+        (identifier)
+        (identifier)))))
+
+================================================================================
+While loop
+================================================================================
+
+while count lt max do begin
+  count = count + 1
+endwhile
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (while_statement
+    condition: (binary_expression
+      left: (identifier)
+      right: (identifier))
+    (body
+      (assignment
+        left: (identifier)
+        right: (binary_expression
+          left: (identifier)
+          right: (number_literal))))))
+
+================================================================================
+While loop inline
+================================================================================
+
+while x gt 0 do x = x - 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (while_statement
+    condition: (binary_expression
+      left: (identifier)
+      right: (number_literal))
+    (assignment
+      left: (identifier)
+      right: (binary_expression
+        left: (identifier)
+        right: (number_literal)))))
+
+================================================================================
+Repeat until
+================================================================================
+
+repeat begin
+  x = x + 1
+endrep until x ge 10
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (repeat_statement
+    (body
+      (assignment
+        left: (identifier)
+        right: (binary_expression
+          left: (identifier)
+          right: (number_literal))))
+    condition: (binary_expression
+      left: (identifier)
+      right: (number_literal))))
+
+================================================================================
+Repeat until inline
+================================================================================
+
+repeat x = x + 1 until x ge 10
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (repeat_statement
+    (assignment
+      left: (identifier)
+      right: (binary_expression
+        left: (identifier)
+        right: (number_literal)))
+    condition: (binary_expression
+      left: (identifier)
+      right: (number_literal))))
