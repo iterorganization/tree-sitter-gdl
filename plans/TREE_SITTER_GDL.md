@@ -12,19 +12,19 @@ First-pass code file discovery at TCV reveals 63,945 code files across 7 languag
 
 | Language | Files | % of Total | Tree-sitter Support | Chunking Method |
 |----------|------:|----------:|---------------------|-----------------|
-| MATLAB | 41,911 | 65.5% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
-| Fortran | 9,090 | 14.2% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
-| IDL/GDL | 4,667 | 7.3% | **No** — this project | `SentenceSplitter` (text fallback) |
-| Python | 3,315 | 5.2% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
-| TDI | 3,005 | 4.7% | **No** — domain-specific | `SentenceSplitter` (text fallback) |
-| C | 1,530 | 2.4% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
-| C++ | 427 | 0.7% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
+| MATLAB | 41,911 | 65.5% | **Yes** — `tree-sitter-language-pack` | AST chunking |
+| Fortran | 9,090 | 14.2% | **Yes** — `tree-sitter-language-pack` | AST chunking |
+| IDL/GDL | 4,667 | 7.3% | **No** — this project | Text fallback |
+| Python | 3,315 | 5.2% | **Yes** — `tree-sitter-language-pack` | AST chunking |
+| TDI | 3,005 | 4.7% | **No** — domain-specific | Text fallback |
+| C | 1,530 | 2.4% | **Yes** — `tree-sitter-language-pack` | AST chunking |
+| C++ | 427 | 0.7% | **Yes** — `tree-sitter-language-pack` | AST chunking |
 
 **Key finding**: IDL is the **only general-purpose language** lacking tree-sitter support. TDI is a domain-specific MDSplus expression language — not a candidate for tree-sitter. All other languages (MATLAB, Fortran, Python, C, C++, Julia) have confirmed working parsers via `tree-sitter-language-pack ≥0.13.0`.
 
 ### Verified Tree-sitter Support (March 2026)
 
-All parsers confirmed working end-to-end through LlamaIndex `CodeSplitter`:
+All parsers confirmed working end-to-end through `tree-sitter-language-pack`:
 
 ```
 python:  OK — tree-sitter-language-pack.get_parser('python')
@@ -53,13 +53,15 @@ The `tree-sitter-languages` dependency may be vestigial — `tree-sitter-languag
 
 ### Current IDL Handling in imas-codex
 
-IDL files (`.pro`) fall back to `SentenceSplitter` (line-based text chunking):
+IDL files (`.pro`) fall back to text-based chunking (sliding-window on line boundaries):
 
 - [imas_codex/ingestion/readers/remote.py](imas_codex/ingestion/readers/remote.py): `TEXT_SPLITTER_LANGUAGES = {"tdi", "idl", ...}`
 - [imas_codex/config/patterns/file_types.yaml](imas_codex/config/patterns/file_types.yaml): `idl: tree_sitter: false`
-- [imas_codex/ingestion/pipeline.py](imas_codex/ingestion/pipeline.py): Routes to `SentenceSplitter` when `language in TEXT_SPLITTER_LANGUAGES`
+- [imas_codex/ingestion/chunkers.py](imas_codex/ingestion/chunkers.py): Routes to `chunk_text()` when `language in TEXT_SPLITTER_LANGUAGES`
 
 Text-based splitting works but produces lower-quality chunks: it can't respect procedure/function boundaries, splits mid-expression across line continuations, and doesn't understand IDL block structure (begin/end pairs).
+
+> **Note**: imas-codex uses tree-sitter directly via `tree-sitter-language-pack.get_parser()` — there is no LlamaIndex intermediary. tree-sitter-gdl is a **tree-sitter plugin**, not a framework plugin. This means integration is a single `get_parser()` call.
 
 ## Naming Decision
 
@@ -360,7 +362,7 @@ This requires the grammar to distinguish: `mds$value` (single identifier) vs `re
 
 **Deliverables:**
 - [ ] Add `tree-sitter-gdl` as optional dependency in imas-codex `pyproject.toml`
-- [ ] Update `imas_codex/ingestion/pipeline.py`: pass custom parser when `language == 'idl'`
+- [ ] Register GDL parser in `imas_codex/ingestion/chunkers.py` — one `get_parser()` call
 - [ ] Remove `"idl"` from `TEXT_SPLITTER_LANGUAGES` in `remote.py`
 - [ ] Update `file_types.yaml`: `idl: tree_sitter: true`
 - [ ] PR to `tree-sitter-language-pack` to include `gdl` grammar
@@ -368,41 +370,40 @@ This requires the grammar to distinguish: `mds$value` (single identifier) vs `re
 
 ## Integration Architecture
 
+tree-sitter-gdl is a **tree-sitter plugin** — it produces a compiled grammar that any tree-sitter host can load. imas-codex uses tree-sitter directly (not via LlamaIndex or any other framework), so integration is straightforward.
+
 ### Before tree-sitter-language-pack Inclusion
 
-Until `gdl` is merged into `tree-sitter-language-pack`, imas-codex needs custom parser injection:
+Until `gdl` is merged into `tree-sitter-language-pack`, imas-codex registers the custom parser:
 
 ```python
-# imas_codex/ingestion/pipeline.py — modified create_pipeline()
-def create_pipeline(language: str = "python", ...) -> IngestionPipeline:
-    if use_text_splitter or language in TEXT_SPLITTER_LANGUAGES:
-        splitter = SentenceSplitter(...)
-    else:
-        # Custom parser for GDL/IDL
-        parser = None
-        if language == "idl":
-            try:
-                import tree_sitter_gdl
-                from tree_sitter import Parser
-                parser = Parser(tree_sitter_gdl.language())
-            except ImportError:
-                logger.warning("tree-sitter-gdl not installed, falling back to text splitter")
-                splitter = SentenceSplitter(...)
-                # ... return pipeline with text splitter
-        splitter = CodeSplitter(language=language, parser=parser, ...)
-    ...
+# imas_codex/ingestion/chunkers.py — get_parser() with GDL fallback
+def get_parser(language: str) -> Parser:
+    """Get a tree-sitter parser for the given language."""
+    if language == "idl":
+        try:
+            import tree_sitter_gdl
+            return Parser(tree_sitter_gdl.language())
+        except ImportError:
+            raise ValueError(
+                "tree-sitter-gdl not installed. "
+                "Install with: uv add tree-sitter-gdl"
+            )
+    # All other languages — use tree-sitter-language-pack
+    from tree_sitter_language_pack import get_parser
+    return get_parser(language)
 ```
 
-LlamaIndex's `CodeSplitter` accepts an optional `parser` kwarg — we pass our custom GDL parser directly, bypassing `tree-sitter-language-pack` lookup.
+No framework intermediary — this is a direct tree-sitter API call. The parser object feeds into `chunk_code()` which walks the AST and produces chunks respecting function/procedure boundaries.
 
 ### After tree-sitter-language-pack Inclusion
 
 Submit PR to [Goldziher/tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack) adding `gdl` as a vendored grammar. Once merged and released:
 
 1. Remove `tree-sitter-gdl` from imas-codex dependencies
-2. Remove custom parser injection code
+2. Remove custom parser registration in `chunkers.py`
 3. Remove `"idl"` from `TEXT_SPLITTER_LANGUAGES`
-4. Everything routes through standard `CodeSplitter(language='gdl')` path
+4. Everything routes through standard `get_parser('gdl')` path
 
 ## Repository Structure
 
