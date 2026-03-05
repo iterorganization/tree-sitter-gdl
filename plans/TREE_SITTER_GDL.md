@@ -2,146 +2,225 @@
 
 > **Goal**: Create a tree-sitter grammar for GDL/IDL to enable AST-based code parsing for fusion and astronomy scientific code.
 
-**Repository**: `iterorganization/tree-sitter-gdl` (forked to `simon-mcintosh/tree-sitter-gdl` for development)  
-**PyPI Package**: `tree-sitter-gdl`  
+**Repository**: `iterorganization/tree-sitter-gdl` (forked to `simon-mcintosh/tree-sitter-gdl` for development)
+**PyPI Package**: `tree-sitter-gdl`
 **Grammar Name**: `gdl`
+
+## Context: TCV Code Discovery Data (March 2026)
+
+First-pass code file discovery at TCV reveals 63,945 code files across 7 languages:
+
+| Language | Files | % of Total | Tree-sitter Support | Chunking Method |
+|----------|------:|----------:|---------------------|-----------------|
+| MATLAB | 41,911 | 65.5% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
+| Fortran | 9,090 | 14.2% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
+| IDL/GDL | 4,667 | 7.3% | **No** — this project | `SentenceSplitter` (text fallback) |
+| Python | 3,315 | 5.2% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
+| TDI | 3,005 | 4.7% | **No** — domain-specific | `SentenceSplitter` (text fallback) |
+| C | 1,530 | 2.4% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
+| C++ | 427 | 0.7% | **Yes** — `tree-sitter-language-pack` | `CodeSplitter` (AST) |
+
+**Key finding**: IDL is the **only general-purpose language** lacking tree-sitter support. TDI is a domain-specific MDSplus expression language — not a candidate for tree-sitter. All other languages (MATLAB, Fortran, Python, C, C++, Julia) have confirmed working parsers via `tree-sitter-language-pack ≥0.13.0`.
+
+### Verified Tree-sitter Support (March 2026)
+
+All parsers confirmed working end-to-end through LlamaIndex `CodeSplitter`:
+
+```
+python:  OK — tree-sitter-language-pack.get_parser('python')
+matlab:  OK — tree-sitter-language-pack.get_parser('matlab')
+fortran: OK — tree-sitter-language-pack.get_parser('fortran')
+c:       OK — tree-sitter-language-pack.get_parser('c')
+cpp:     OK — tree-sitter-language-pack.get_parser('cpp')
+julia:   OK — tree-sitter-language-pack.get_parser('julia')
+bash:    OK — tree-sitter-language-pack.get_parser('bash')
+idl:     NOT SUPPORTED — "Could not find language library for idl"
+gdl:     NOT SUPPORTED — "Could not find language library for gdl"
+tdi:     NOT SUPPORTED — "Could not find language library for tdi"
+```
+
+### imas-codex Dependencies (pyproject.toml)
+
+Current dependencies are correct and sufficient for all supported languages:
+
+```toml
+"tree-sitter>=0.25.2",
+"tree-sitter-languages>=1.10.2",         # Legacy — may be removable
+"tree-sitter-language-pack>=0.13.0",      # Primary: 165+ languages
+```
+
+The `tree-sitter-languages` dependency may be vestigial — `tree-sitter-language-pack` supersedes it. Consider removing in a future cleanup.
+
+### Current IDL Handling in imas-codex
+
+IDL files (`.pro`) fall back to `SentenceSplitter` (line-based text chunking):
+
+- [imas_codex/ingestion/readers/remote.py](imas_codex/ingestion/readers/remote.py): `TEXT_SPLITTER_LANGUAGES = {"tdi", "idl", ...}`
+- [imas_codex/config/patterns/file_types.yaml](imas_codex/config/patterns/file_types.yaml): `idl: tree_sitter: false`
+- [imas_codex/ingestion/pipeline.py](imas_codex/ingestion/pipeline.py): Routes to `SentenceSplitter` when `language in TEXT_SPLITTER_LANGUAGES`
+
+Text-based splitting works but produces lower-quality chunks: it can't respect procedure/function boundaries, splits mid-expression across line continuations, and doesn't understand IDL block structure (begin/end pairs).
 
 ## Naming Decision
 
 We use **GDL** (GNU Data Language) rather than IDL because:
-1. GDL is the open-source implementation - no trademark concerns
+1. GDL is the open-source implementation — no trademark concerns
 2. `tree-sitter-idl` already exists for OMG IDL (CORBA Interface Definition Language)
 3. PyPI package `tree-sitter-gdl` is available
-4. GDL is 100% syntax-compatible with IDL - same `.pro` files
+4. GDL is 100% syntax-compatible with IDL — same `.pro` files
 
-## Motivation
+## Motivation & Value Assessment
 
-GDL/IDL (Interactive Data Language) is widely used in:
-- **Fusion research**: Data analysis at TCV, ASDEX, DIII-D
-- **Astronomy**: FITS file processing, image analysis
-- **Earth science**: Satellite data processing
+### Quantitative Impact
 
-Currently, no tree-sitter grammar exists for GDL/IDL. This project would:
-1. Enable AST-based code chunking in imas-codex
-2. Benefit the broader scientific Python and tree-sitter communities
-3. Be a contribution opportunity for the fusion community
+- **4,667 IDL files at TCV** would benefit from AST-aware chunking
+- At typical ingestion rates (~75% pass triage), ~3,500 files would be chunked
+- AST chunking produces ~30-50% fewer chunks with better semantic boundaries vs text splitting
+- Procedure/function boundaries are preserved, improving embedding quality and downstream retrieval
+
+### Qualitative Impact
+
+- IDL code at TCV is heavily MDSplus-oriented (`mds$open`, `mds$value`, `mds$put` calls throughout)
+- Procedure-level chunking would improve MDSplus path extraction accuracy
+- Code evidence linking (DataReference → TreeNode → FacilitySignal) works better with semantically coherent chunks
+- Benefits the broader scientific community (astronomy, earth science use IDL extensively)
+
+### Is It Worth Building?
+
+**Yes.** IDL is the **3rd most common language** at TCV (after MATLAB and Fortran), with nearly 5,000 files. The grammar complexity is moderate (~600-900 lines of JavaScript), simpler than Fortran or MATLAB which already have grammars. The effort-to-impact ratio is favorable.
 
 ## Discovering GDL/IDL Syntax
 
-GDL/IDL terminology, syntax patterns, and sample files can be discovered from the EPFL facility using the **imas-codex MCP server**:
+### MCP Server Access
+
+The imas-codex MCP server (`python()` REPL tool) provides SSH access to TCV for exploring `.pro` files. When the MCP server is available:
 
 ```python
-# Using the python() REPL tool
+# Using the python() REPL tool — requires MCP server running
 
 # Find .pro files
-print(ssh("fd -e pro /home --max-depth 4 2>/dev/null | head -20"))
+print(ssh("find /home -name '*.pro' -maxdepth 5 2>/dev/null | head -20"))
 
-# Search for specific constructs
-print(ssh("rg -l 'mdsopen|mdsvalue' /home -g '*.pro' 2>/dev/null | head -10"))
+# Search for MDSplus access patterns
+print(ssh("rg -l 'mds\\$open|mds\\$value' /home -g '*.pro' --max-depth 5 2>/dev/null | head -10"))
 
 # Read sample file
-print(ssh("cat /home/bgeiger/write_namelist.pro"))
+print(ssh("cat /home/admele/Code/shotdesign/idl/liuqe_params.pro"))
 
-# Find common patterns
-print(ssh("rg '^pro |^function ' /home -g '*.pro' 2>/dev/null | head -20"))
+# Find procedure/function definitions
+print(ssh("rg '^pro |^function ' /home/admele/Code/shotdesign/idl/ -g '*.pro' 2>/dev/null"))
 ```
 
-This enables iterative grammar development with real-world test cases from fusion research code.
+### Direct SSH Access (Alternative)
 
-## Feasibility Assessment
+When MCP is not available, SSH to TCV directly:
 
-### IDL Syntax Complexity
+```bash
+ssh tcv "find /home -name '*.pro' -maxdepth 5 2>/dev/null | head -20"
+ssh tcv "cat /home/admele/Code/shotdesign/idl/liuqe_params.pro"
+```
 
-| Feature | Complexity | Notes |
-|---------|------------|-------|
-| Procedures/Functions | Low | Simple `pro`/`function`...`end` blocks |
-| Control structures | Medium | `if/then/else`, `for/do`, `case/of` |
-| Operators | Medium | Word operators (`eq`, `ne`, `and`, `or`) |
-| Array indexing | Medium | `[start:end:step]`, `[*]` |
-| Keywords | Low | `/keyword`, `keyword=value` |
-| Strings | Low | Single and double quoted |
-| Comments | Low | `;` to end of line |
-| Line continuation | Low | `$` at end of line |
-| Object-oriented | Medium | `obj->method` syntax |
+### Known IDL File Locations at TCV
 
-**Estimated complexity**: Similar to MATLAB grammar (~500-800 lines of JavaScript)
+| Path | Content | Constructs |
+|------|---------|------------|
+| `/home/admele/Code/shotdesign/idl/` | Shot design recipes (TCVCS) | `mds$open`, `mds$value`, `mds$put`, `for/do`, `if/then/begin/endif` |
+| `/home/cordaro/script_analisi/idl/` | Magnetic probe analysis | `mds$value`, `case/of`, `readcol`, array slicing |
+| `/home/VMS/XYZ/MDSMGR/IDL/` | MDSplus management utilities | `mds$open`, `mds$close`, `mds$put`, line continuation `$` |
+| `/home/agostini/tcv/` | Diagnostic analysis | Mixed MDSplus access patterns |
 
-### Comparison to Existing Grammars
+## GDL/IDL Syntax Overview (from TCV Inspection)
 
-| Grammar | Lines | Complexity |
-|---------|-------|------------|
-| tree-sitter-matlab | ~800 | Similar syntax family |
-| tree-sitter-fortran | ~1200 | More complex |
-| tree-sitter-python | ~1500 | More complex |
-| tree-sitter-bash | ~1000 | Comparable |
+### Real-World Constructs Observed at TCV
 
-**Estimate**: GDL grammar would be ~600-900 lines.
-
-## GDL/IDL Syntax Overview
+The following syntax patterns are confirmed from actual TCV `.pro` files:
 
 ### 1. Procedures and Functions
 
 ```idl
-pro procedure_name, arg1, arg2, keyword=value
-  ; procedure body
-  print, 'Hello'
+; Simple procedure (liuqe_params.pro)
+pro liuqe_params
+  on_error, 2
+  mds$open, 'tcv_shot', -1
+  nequil = mds$value('\pcs::mgams.data:numeq')
 end
 
-function function_name, arg1, arg2, keyword=value
-  ; function body
-  result = arg1 + arg2
-  return, result
+; Function with return (pcs_invgains.pro)
+function amp_gain, name, magvalues, magnames, labels, dim_labels
+  label = labels(where(name eq dim_labels))
+  index = where(magnames eq name)
+  gain = mds$value('_amp_gainmat[_n-1,' + string(setting) + ']')
+  return, -0.9969 * gain
+end
+
+; Procedure with keywords
+pro analyze_shot, shot, verbose=verbose, output_dir=output_dir
+  if n_elements(output_dir) eq 0 then output_dir = '~/analysis'
 end
 ```
 
-### 2. Control Structures
+### 2. Control Structures (all confirmed in TCV code)
 
 ```idl
-; If/then/else
-if condition then statement
-if condition then begin
-  ; block
+; If/then inline
+if nequil lt 1 then message, 'numeq < 1!'
+
+; If/then/begin/endif block
+if ilia(i) ne 0 then begin
+  rbou = rlia1(0:ilia(i)-1, i)
+  zbou = zlia1(0:ilia(i)-1, i)
 endif else begin
-  ; else block
+  rbou = rlim1(0:ilie(i)-1, i)
 endelse
 
 ; For loop
-for i = 0, n-1 do begin
-  ; loop body
+for i = 0, nequil-1 do begin
+  if iansha(i) eq 0 then begin
+    ; nested if/then
+  endif
 endfor
 
-; Foreach
-foreach element, array do begin
-  ; element processing
-endforeach
-
-; While
-while condition do begin
-  ; loop body
-endwhile
-
-; Repeat/until
-repeat begin
-  ; loop body
-endrep until condition
-
-; Case/switch
-case expression of
-  value1: statement
-  value2: begin
-    ; block
+; Case statement
+case button of
+  1: begin
+    t_bps3 = t
+    bps3 = sig
   end
-  else: default_statement
+  2: begin
+    t_bps7 = t
+  end
 endcase
+
+; Goto (legacy pattern, still common)
+goto, def_params
 ```
 
-### 3. Operators
+### 3. MDSplus Access Patterns (critical for imas-codex)
 
 ```idl
-; Arithmetic
-a + b, a - b, a * b, a / b, a ^ b, a mod b
+; Open/close tree
+mds$open, 'tcv_shot', shot
+mds$close
 
-; Comparison (word operators!)
+; Read node values
+nequil = mds$value('\pcs::mgams.data:numeq')
+ip = mds$value('\magnetics::ip')
+
+; Write values
+mds$put, '\pcs::feed_gains', '$', gains
+
+; Dynamic TDI expressions
+gain = mds$value('_amp_gainmat[_n-1,' + string(setting) + ']')
+dum = mds$value('_pre_nnn=iii(element(3,"/","' + label(0) + '"))')
+
+; GETnci introspection
+ll = mds$value('getnci(".TRCF_001:CHANNEL_001","RLENGTH")')
+```
+
+### 4. Operators (word-based comparison is the main complexity)
+
+```idl
+; Word comparison operators
 a eq b    ; equal
 a ne b    ; not equal
 a lt b    ; less than
@@ -150,153 +229,344 @@ a le b    ; less or equal
 a ge b    ; greater or equal
 
 ; Logical
-a and b, a or b, a xor b, not a
+a and b, a or b, not a
 
-; Array
-arr[0], arr[0:10], arr[*], arr[0:*:2]
-arr # brr   ; matrix multiply
-arr ## brr  ; transpose multiply
+; Arithmetic
+a + b, a - b, a * b, a / b, a ^ b, a mod b
 ```
 
-### 4. Keywords and Special Syntax
+### 5. Line Continuation
 
 ```idl
-; Keyword shorthand
-plot, x, y, /xlog        ; equivalent to xlog=1
-plot, x, y, color=255
-
-; Line continuation
-result = long_function_name( $
-  arg1, arg2, $
-  arg3)
-
-; Batch include
-@startup_file
-
-; Common blocks
-common block_name, var1, var2, var3
+; $ at end of line continues to next line (very common at TCV)
+if mds$value('getnci(".TRCF_001:CHANNEL_001","RLENGTH")') eq 24 then    $
+   ll = 0                                                               $
+else                                                                    $
+   ll = mds$value('size(.TRCF_001:CHANNEL_001)')
 ```
 
-### 5. Data Types
+### 6. Data Types and Arrays
 
 ```idl
-; Numbers
-42, 42L, 42LL          ; integer, long, 64-bit
-3.14, 3.14d0           ; float, double
-1e10, 1d10             ; scientific notation
-complex(1.0, 2.0)      ; complex
-
-; Strings
-'single quoted'
-"double quoted"
-
 ; Arrays
-[1, 2, 3, 4]
-intarr(10), fltarr(10, 10)
+rout = fltarr(nequil)
+load_gains = intarr(24) + 1
+
+; Array indexing
+rbou = rlia1(0:ilia(i)-1, i)
+load_gains(fix(outputs)-1) = gains
+
+; String operations
+outputs = strupcase(mds$value('\pcs::phys_mat_a_outputs'))
+outputs = strmid(outputs, 2, 3)
 
 ; Structures
 {tag1: value1, tag2: value2}
-{name, tag1: value1}    ; named structure
 ```
+
+## Feasibility Assessment
+
+### IDL Syntax Complexity
+
+| Feature | Complexity | Notes |
+|---------|------------|-------|
+| Procedures/Functions | Low | `pro`/`function`...`end` blocks |
+| Control structures | Medium | `if/then/else`, `for/do`, `case/of`, inline and block forms |
+| Operators | Medium | Word operators (`eq`, `ne`, `and`, `or`) — context-sensitive |
+| Array indexing | Medium | `[start:end:step]`, `[*]`, `(index)` function-call ambiguity |
+| Keywords | Low | `/keyword`, `keyword=value` |
+| Strings | Low | Single `'` and double `"` quoted |
+| Comments | Low | `;` to end of line |
+| Line continuation | Low | `$` at end of line |
+| Object-oriented | Medium | `obj->method` syntax (less common at TCV) |
+| MDSplus calls | Low | `mds$open`, `mds$value` — just identifiers with `$` |
+| Goto | Low | `goto, label` — legacy but still used |
+| Common blocks | Low | `common block_name, var1, var2` |
+
+### Key Parsing Challenge: `$` Character
+
+The `$` character has **dual meaning** in IDL:
+1. **Line continuation** — `$` at end of line (before optional comment)
+2. **Identifier character** — `mds$value`, `mds$open` include `$` as part of the name
+
+This requires the grammar to distinguish: `mds$value` (single identifier) vs `result = value $\n+ more` (continuation). This is resolvable via context — `$` followed by optional whitespace/comment and newline is continuation; `$` within an alphanumeric sequence is part of the identifier.
+
+### Comparison to Existing Grammars
+
+| Grammar | Lines | Complexity | Notes |
+|---------|-------|------------|-------|
+| tree-sitter-matlab | ~800 | Similar family | Most relevant reference — same era, same scientific domain |
+| tree-sitter-fortran | ~1,200 | More complex | Fixed/free form, MODULE/PROGRAM/SUBROUTINE |
+| tree-sitter-python | ~1,500 | More complex | Significant-whitespace, decorators, comprehensions |
+| tree-sitter-bash | ~1,000 | Comparable | Context-sensitive keywords, similar to IDL |
+
+**Estimate**: GDL grammar ~600-900 lines of JavaScript. Simpler than MATLAB (no class system, no namespace), simpler than Fortran (no fixed-form). The `$` dual-meaning and word operators are the main complexities.
 
 ## Implementation Plan
 
-### Phase 1: Core Grammar (2-3 days)
+### Phase 1: Repository Setup & Core Grammar
 
-**Week 1 Deliverables:**
-- [ ] Repository setup with tree-sitter tooling
-- [ ] Basic expressions (numbers, strings, identifiers)
-- [ ] Operators (arithmetic, comparison, logical)
-- [ ] Comments (`;` to end of line)
-- [ ] Line continuation (`$`)
+**Deliverables:**
+- [ ] `tree-sitter init` scaffolding (grammar.js, package.json, bindings/)
+- [ ] Install `tree-sitter-cli` via npm
+- [ ] Basic expressions: numbers (int, long, float, double, scientific), strings, identifiers (including `$` in names)
+- [ ] Operators: arithmetic (`+`, `-`, `*`, `/`, `^`, `mod`), comparison (`eq`, `ne`, `lt`, `gt`, `le`, `ge`), logical (`and`, `or`, `xor`, `not`)
+- [ ] Comments (`;` to end of line, including `;+`/`;-` docstring blocks)
+- [ ] Line continuation (`$` at EOL)
+- [ ] Assignment (`=`)
+- [ ] First corpus tests
 
-**Grammar file structure:**
-```javascript
-// grammar.js
-module.exports = grammar({
-  name: 'gdl',
+### Phase 2: Statements and Control Flow
 
-  extras: $ => [
-    /\s/,
-    $.comment,
-  ],
+**Deliverables:**
+- [ ] Procedure definitions (`pro name, args`...`end`)
+- [ ] Function definitions (`function name, args`...`end`)
+- [ ] If/then/else — inline form (`if cond then stmt`)
+- [ ] If/then/begin — block form (`if cond then begin`...`endif`...`endelse`)
+- [ ] For loops (`for i=0, n-1 do begin`...`endfor`)
+- [ ] While loops (`while cond do begin`...`endwhile`)
+- [ ] Repeat/until (`repeat begin`...`endrep until cond`)
+- [ ] Case/switch statements (`case expr of`...`endcase`)
+- [ ] Goto (`goto, label`)
+- [ ] Return (`return, value`)
+- [ ] Common blocks (`common name, var1, var2`)
+- [ ] Batch include (`@filename`)
 
-  rules: {
-    source_file: $ => repeat($._statement),
-    
-    comment: $ => seq(';', /.*/),
-    
-    // ... rest of grammar
-  }
-});
+### Phase 3: Expressions and Advanced Features
+
+**Deliverables:**
+- [ ] Function/procedure calls with positional and keyword arguments
+- [ ] Keyword shorthand (`/keyword`)
+- [ ] Array indexing: `arr[0]`, `arr[0:10]`, `arr[*]`, `arr[0:*:2]`
+- [ ] Parenthesized subscript: `arr(0)` (ambiguous with function call — use MATLAB approach)
+- [ ] Structure definitions: `{tag1: val1}`, `{name, tag1: val1}`
+- [ ] Structure member access: `struct.member`
+- [ ] Object method calls: `obj->method`
+- [ ] Matrix operators: `#`, `##`
+- [ ] System variable access: `!variable` (e.g., `!pi`, `!stime`)
+- [ ] Ternary: `cond ? expr1 : expr2` (IDL 8.0+)
+
+### Phase 4: Python Bindings & Wheel Publishing
+
+**Deliverables:**
+- [ ] `pyproject.toml` with `tree-sitter` build system
+- [ ] Python bindings via `tree-sitter init --update` (generates `bindings/python/`)
+- [ ] `setup.py` for C extension compilation
+- [ ] GitHub Actions CI: test on Linux/macOS/Windows
+- [ ] GitHub Actions release: build wheels via `cibuildwheel`, publish to PyPI
+- [ ] `Cargo.toml` for Rust bindings (optional, for tree-sitter ecosystem)
+
+### Phase 5: imas-codex Integration
+
+**Deliverables:**
+- [ ] Add `tree-sitter-gdl` as optional dependency in imas-codex `pyproject.toml`
+- [ ] Update `imas_codex/ingestion/pipeline.py`: pass custom parser when `language == 'idl'`
+- [ ] Remove `"idl"` from `TEXT_SPLITTER_LANGUAGES` in `remote.py`
+- [ ] Update `file_types.yaml`: `idl: tree_sitter: true`
+- [ ] PR to `tree-sitter-language-pack` to include `gdl` grammar
+- [ ] Once merged upstream, switch to `tree-sitter-language-pack` and remove standalone dep
+
+## Integration Architecture
+
+### Before tree-sitter-language-pack Inclusion
+
+Until `gdl` is merged into `tree-sitter-language-pack`, imas-codex needs custom parser injection:
+
+```python
+# imas_codex/ingestion/pipeline.py — modified create_pipeline()
+def create_pipeline(language: str = "python", ...) -> IngestionPipeline:
+    if use_text_splitter or language in TEXT_SPLITTER_LANGUAGES:
+        splitter = SentenceSplitter(...)
+    else:
+        # Custom parser for GDL/IDL
+        parser = None
+        if language == "idl":
+            try:
+                import tree_sitter_gdl
+                from tree_sitter import Parser
+                parser = Parser(tree_sitter_gdl.language())
+            except ImportError:
+                logger.warning("tree-sitter-gdl not installed, falling back to text splitter")
+                splitter = SentenceSplitter(...)
+                # ... return pipeline with text splitter
+        splitter = CodeSplitter(language=language, parser=parser, ...)
+    ...
 ```
 
-### Phase 2: Statements and Control Flow (2-3 days)
+LlamaIndex's `CodeSplitter` accepts an optional `parser` kwarg — we pass our custom GDL parser directly, bypassing `tree-sitter-language-pack` lookup.
 
-**Deliverables:**
-- [ ] Procedure definitions (`pro`...`end`)
-- [ ] Function definitions (`function`...`end`)
-- [ ] If/then/else (both inline and block forms)
-- [ ] For loops
-- [ ] While loops
-- [ ] Case/switch statements
+### After tree-sitter-language-pack Inclusion
 
-### Phase 3: Expressions and Advanced Features (2-3 days)
+Submit PR to [Goldziher/tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack) adding `gdl` as a vendored grammar. Once merged and released:
 
-**Deliverables:**
-- [ ] Array indexing (`[start:end:step]`)
-- [ ] Function/procedure calls with keywords
-- [ ] Object method calls (`obj->method`)
-- [ ] Structure definitions and access
-- [ ] Common blocks
-- [ ] Batch includes (`@file`)
-
-### Phase 4: Testing and Integration (2-3 days)
-
-**Deliverables:**
-- [ ] Corpus tests with real GDL/IDL code from EPFL
-- [ ] Python bindings package (`tree-sitter-gdl`)
-- [ ] Integration with tree-sitter-language-pack (PR)
-- [ ] Integration with imas-codex
+1. Remove `tree-sitter-gdl` from imas-codex dependencies
+2. Remove custom parser injection code
+3. Remove `"idl"` from `TEXT_SPLITTER_LANGUAGES`
+4. Everything routes through standard `CodeSplitter(language='gdl')` path
 
 ## Repository Structure
 
 ```
 tree-sitter-gdl/
-├── grammar.js           # Main grammar definition
+├── grammar.js              # Main grammar definition (~600-900 lines)
 ├── src/
-│   ├── parser.c         # Generated parser
-│   ├── scanner.c        # Custom scanner (if needed)
+│   ├── parser.c            # Generated by tree-sitter generate
+│   ├── scanner.c           # Custom scanner for $ disambiguation (if needed)
 │   └── tree_sitter/
 │       └── parser.h
 ├── bindings/
-│   ├── python/          # Python bindings
+│   ├── python/
 │   │   └── tree_sitter_gdl/
-│   ├── rust/            # Rust bindings
-│   └── node/            # Node.js bindings
+│   │       ├── __init__.py
+│   │       ├── __init__.pyi
+│   │       └── binding.c
+│   ├── rust/
+│   │   ├── lib.rs
+│   │   └── build.rs
+│   └── node/
+│       ├── index.js
+│       ├── index.d.ts
+│       └── binding.cc
 ├── queries/
-│   ├── highlights.scm   # Syntax highlighting
-│   ├── injections.scm   # Embedded languages
-│   └── locals.scm       # Local definitions
+│   ├── highlights.scm      # Syntax highlighting queries
+│   └── locals.scm          # Scope/definition queries
 ├── test/
-│   └── corpus/          # Test cases
+│   └── corpus/             # Tree-sitter corpus tests
+│       ├── expressions.txt
+│       ├── statements.txt
+│       ├── control_flow.txt
+│       ├── procedures.txt
+│       ├── functions.txt
+│       ├── mdsplus.txt     # MDSplus access patterns
+│       └── arrays.txt
+├── .github/
+│   └── workflows/
+│       ├── ci.yml          # Test on push/PR
+│       └── release.yml     # Build wheels + publish to PyPI
 ├── package.json
 ├── Cargo.toml
 ├── pyproject.toml
-├── LICENSE              # MIT
+├── setup.py                # C extension build
+├── tree-sitter.json        # Tree-sitter metadata
+├── LICENSE                 # MIT
 └── README.md
 ```
 
 ## Testing Strategy
 
-### Corpus Tests
+### Principle: No Real TCV Data in Public Tests
 
+The `tree-sitter-gdl` repo is public. Test corpus files must **never** contain:
+- Actual TCV shot numbers
+- Real MDSplus node paths from TCV infrastructure
+- Real user names or file paths from EPFL
+- Proprietary diagnostic names or calibration data
+
+### Approach: Synthetic Test Corpus
+
+Create test cases that exercise the **same syntactic patterns** observed at TCV while using entirely fictional content. The patterns are language syntax — they are not proprietary. The content (variable names, paths, numeric values) is replaced with generic equivalents.
+
+**Example: Translating real patterns to test cases**
+
+Real TCV code (NOT for tests):
+```idl
+mds$open, 'tcv_shot', shot
+ip = mds$value('\magnetics::ip')
+```
+
+Synthetic test equivalent:
+```idl
+mds$open, 'experiment', shot_number
+signal = mds$value('\diagnostics::measurement')
+```
+
+The grammar doesn't care about string content — it parses the syntax structure. We test that `mds$open` is recognized as an identifier (with `$`), that the comma-separated arguments parse correctly, and that the string literal is captured.
+
+### Corpus Test Files
+
+Each corpus file tests one syntactic area:
+
+#### `test/corpus/expressions.txt`
 ```text
 ================================================================================
-Procedure definition
+Integer literals
 ================================================================================
 
-pro hello_world, name
+x = 42
+y = 42L
+z = 42LL
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment (identifier) (integer))
+  (assignment (identifier) (long_integer))
+  (assignment (identifier) (long64_integer)))
+
+================================================================================
+Float literals
+================================================================================
+
+a = 3.14
+b = 3.14d0
+c = 1e10
+d = 1d10
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment (identifier) (float))
+  (assignment (identifier) (double))
+  (assignment (identifier) (float))
+  (assignment (identifier) (double)))
+
+================================================================================
+String literals
+================================================================================
+
+s1 = 'single quoted'
+s2 = "double quoted"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment (identifier) (string))
+  (assignment (identifier) (string)))
+
+================================================================================
+Identifiers with dollar sign
+================================================================================
+
+result = lib$routine
+data = mds$value('test')
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment (identifier) (identifier))
+  (assignment (identifier) (call_expression (identifier) (argument_list (string)))))
+
+================================================================================
+System variables
+================================================================================
+
+pi_val = !pi
+err = !error_state
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment (identifier) (system_variable))
+  (assignment (identifier) (system_variable)))
+```
+
+#### `test/corpus/procedures.txt`
+```text
+================================================================================
+Simple procedure
+================================================================================
+
+pro greet, name
   print, 'Hello, ' + name
 end
 
@@ -306,182 +576,366 @@ end
   (procedure_definition
     name: (identifier)
     parameters: (parameter_list (identifier))
-    body: (statement_list
+    body: (body
       (call_expression
-        function: (identifier)
-        arguments: (argument_list
-          (binary_expression
-            left: (string)
-            operator: (plus)
-            right: (identifier)))))))
+        (identifier)
+        (argument_list
+          (binary_expression (string) (identifier)))))))
+
+================================================================================
+Procedure with keywords
+================================================================================
+
+pro configure, device, verbose=verbose, timeout=timeout
+  if keyword_set(verbose) then print, 'Configuring...'
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    parameters: (parameter_list
+      (identifier)
+      (keyword_parameter (identifier) (identifier))
+      (keyword_parameter (identifier) (identifier)))
+    body: (body
+      (if_statement
+        (call_expression (identifier) (argument_list (identifier)))
+        (call_expression (identifier) (argument_list (string)))))))
 ```
 
-### Real-World Test Files
+#### `test/corpus/control_flow.txt`
+```text
+================================================================================
+If/then inline
+================================================================================
 
-Use IDL files from EPFL for integration testing:
-- `/home/bgeiger/write_namelist.pro`
-- `/home/cordaro/script_analisi/idl/*.pro`
+if count lt 1 then print, 'Empty'
 
-## Integration with imas-codex
+--------------------------------------------------------------------------------
 
-### 1. Python Package Installation
+(source_file
+  (if_statement
+    (comparison_expression (identifier) (identifier))
+    (call_expression (identifier) (argument_list (string)))))
+
+================================================================================
+If/then/begin block
+================================================================================
+
+if count gt 0 then begin
+  total = total + count
+endif else begin
+  total = 0
+endelse
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (if_statement
+    (comparison_expression (identifier) (integer))
+    (body (assignment (identifier) (binary_expression (identifier) (identifier))))
+    (else_clause
+      (body (assignment (identifier) (integer))))))
+
+================================================================================
+For loop
+================================================================================
+
+for i = 0, n-1 do begin
+  values[i] = compute(i)
+endfor
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (for_statement
+    (identifier)
+    (integer)
+    (binary_expression (identifier) (integer))
+    (body
+      (assignment
+        (subscript_expression (identifier) (identifier))
+        (call_expression (identifier) (argument_list (identifier)))))))
+
+================================================================================
+Case statement
+================================================================================
+
+case mode of
+  1: print, 'First'
+  2: begin
+    print, 'Second'
+    result = compute()
+  end
+  else: print, 'Default'
+endcase
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (case_statement
+    (identifier)
+    (case_clause (integer) (call_expression (identifier) (argument_list (string))))
+    (case_clause (integer)
+      (body
+        (call_expression (identifier) (argument_list (string)))
+        (assignment (identifier) (call_expression (identifier)))))
+    (else_clause (call_expression (identifier) (argument_list (string))))))
+```
+
+#### `test/corpus/mdsplus.txt`
+```text
+================================================================================
+MDS open and close
+================================================================================
+
+mds$open, 'experiment', shot_num
+mds$close
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (call_expression (identifier) (argument_list (string) (identifier)))
+  (call_expression (identifier)))
+
+================================================================================
+MDS value with path
+================================================================================
+
+signal = mds$value('\diagnostics::channel_01')
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (call_expression (identifier) (argument_list (string)))))
+
+================================================================================
+MDS put
+================================================================================
+
+mds$put, '\controls::gains', '$', gain_array
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (call_expression
+    (identifier)
+    (argument_list (string) (string) (identifier))))
+
+================================================================================
+MDS value with string concatenation
+================================================================================
+
+result = mds$value('data[_n-1,' + string(idx) + ']')
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (call_expression
+      (identifier)
+      (argument_list
+        (binary_expression
+          (binary_expression
+            (string)
+            (call_expression (identifier) (argument_list (identifier))))
+          (string))))))
+```
+
+#### `test/corpus/line_continuation.txt`
+```text
+================================================================================
+Line continuation in expression
+================================================================================
+
+result = first_value + $
+  second_value
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (binary_expression (identifier) (identifier))))
+
+================================================================================
+Line continuation in if/else
+================================================================================
+
+if condition eq 1 then $
+  value = 0 $
+else $
+  value = mds$value('test')
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (if_statement
+    (comparison_expression (identifier) (integer))
+    (assignment (identifier) (integer))
+    (else_clause
+      (assignment (identifier)
+        (call_expression (identifier) (argument_list (string)))))))
+```
+
+### Integration Tests (Private, imas-codex repo)
+
+Once the grammar is functional, add integration tests in imas-codex that:
+1. Parse actual TCV code fetched via SSH (tests live in imas-codex, not tree-sitter-gdl)
+2. Verify chunk boundaries align with procedure/function definitions
+3. Compare chunk quality vs text-splitter fallback
+4. These tests can reference real TCV paths since imas-codex is a private context
+
+## Wheel Publishing Strategy
+
+### Build Infrastructure
+
+Use `cibuildwheel` via GitHub Actions, following the pattern established by `tree-sitter-matlab`:
+
+```yaml
+# .github/workflows/release.yml
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build-wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux*"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/
+
+  publish:
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # PyPI trusted publisher
+    steps:
+      - uses: actions/download-artifact@v4
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: wheels-*/
+```
+
+### pyproject.toml (tree-sitter-gdl)
 
 ```toml
-# pyproject.toml (tree-sitter-gdl)
 [project]
 name = "tree-sitter-gdl"
 version = "0.1.0"
-dependencies = ["tree-sitter>=0.20"]
+description = "GDL/IDL tree-sitter grammar with Python bindings"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["tree-sitter", "gdl", "idl", "parser", "scientific-computing"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Compilers",
+]
 
 [build-system]
-requires = ["tree-sitter"]
+requires = ["setuptools>=75.0", "tree-sitter>=0.25"]
+build-backend = "setuptools.build_meta"
 ```
 
-### 2. imas-codex Integration
+### Wheel Platform Coverage
 
-```python
-# imas_codex/code_examples/parsers.py
-
-def get_parser(language: str) -> Parser:
-    """Get tree-sitter parser for language."""
-    if language == 'gdl':
-        try:
-            import tree_sitter_gdl
-            return Parser(tree_sitter_gdl.language())
-        except ImportError:
-            logger.warning("tree-sitter-gdl not installed, using regex fallback")
-            return None
-    # ... other languages via tree-sitter-language-pack
-```
-
-### 3. Chunking Integration
-
-```python
-# Once grammar is ready, update discovery.yaml
-tree_sitter_languages:
-  - python
-  - fortran
-  - c
-  - cpp
-  - matlab
-  - julia
-  - bash
-  - gdl  # Add when tree-sitter-gdl is ready
-```
+Following `tree-sitter-matlab` pattern, target:
+- Linux: x86_64, aarch64 (manylinux)
+- macOS: x86_64, arm64 (universal2)
+- Windows: x86_64
+- Python: 3.10, 3.11, 3.12, 3.13
 
 ## Effort Estimate
 
 | Phase | Effort | Dependencies |
 |-------|--------|--------------|
-| Phase 1: Core | 2-3 days | None |
-| Phase 2: Statements | 2-3 days | Phase 1 |
-| Phase 3: Advanced | 2-3 days | Phase 2 |
-| Phase 4: Testing | 2-3 days | Phase 3 |
-| **Total** | **8-12 days** | |
+| Phase 1: Setup & Core | 2-3 sessions | `npm install tree-sitter-cli` |
+| Phase 2: Control Flow | 2-3 sessions | Phase 1 |
+| Phase 3: Expressions | 2-3 sessions | Phase 2 |
+| Phase 4: Wheels & CI | 1-2 sessions | Phase 3 (GitHub Actions familiarity) |
+| Phase 5: imas-codex Integration | 1 session | Phase 4 (published wheel) |
+| **Total** | **8-12 sessions** | |
+
+The bulk of effort is in Phase 2 (control flow) due to IDL's multiple end-keywords (`endif`, `endelse`, `endfor`, `endwhile`, `endcase`, `endrep`) and the inline vs block form duality of `if/then`.
 
 ## Resources
 
 ### Tree-sitter Documentation
-- [Tree-sitter Guide](https://tree-sitter.github.io/tree-sitter/creating-parsers)
+- [Creating Parsers](https://tree-sitter.github.io/tree-sitter/creating-parsers)
 - [Grammar DSL Reference](https://tree-sitter.github.io/tree-sitter/creating-parsers#the-grammar-dsl)
 
-### GDL/IDL Documentation
+### GDL/IDL Language Reference
 - [IDL Language Reference](https://www.nv5geospatialsoftware.com/docs/idl_language.html)
-- [GDL Source Code](https://github.com/gnudatalanguage/gdl) - Primary reference for grammar
+- [GDL Source Code](https://github.com/gnudatalanguage/gdl) — primary reference for grammar edge cases
 - [GDL Documentation](https://gnudatalanguage.github.io/gdl-documentation/)
 
-### Reference Grammars
-- [tree-sitter-matlab](https://github.com/acristoffers/tree-sitter-matlab) - Most similar syntax
-- [tree-sitter-fortran](https://github.com/stadelmanma/tree-sitter-fortran) - Scientific language
-- [tree-sitter-python](https://github.com/tree-sitter/tree-sitter-python) - High-quality example
+### Reference Grammars (study these)
+- [tree-sitter-matlab](https://github.com/acristoffers/tree-sitter-matlab) — most similar syntax family, actively maintained, good CI/wheel example
+- [tree-sitter-fortran](https://github.com/stadelmanma/tree-sitter-fortran) — scientific language with similar era
+- [tree-sitter-bash](https://github.com/tree-sitter/tree-sitter-bash) — context-sensitive keywords similar to IDL
+
+### Wheel Publishing Reference
+- [tree-sitter-matlab wheel CI](https://github.com/acristoffers/tree-sitter-matlab/blob/main/.github/workflows/) — GitHub Actions for cibuildwheel
+- [tree-sitter-language-pack contributing](https://github.com/Goldziher/tree-sitter-language-pack/blob/main/CONTRIBUTING.md) — how to add a new language
 
 ## Decision Points
 
-### 1. Scope
+### 1. Custom Scanner Needed?
 
-**Option A**: Full IDL coverage (including OOP, all built-ins)
-- Pros: Complete, community-ready
-- Cons: More effort, may delay imas-codex integration
+IDL's `$` dual-meaning (line continuation vs identifier character) may need a custom scanner in C. However, this can likely be handled in `grammar.js` via:
+- Defining identifiers as `/[a-zA-Z_][a-zA-Z0-9_$]*/` (dollar within alphanumeric)
+- Defining line continuation as `$` followed by optional whitespace before newline
+- Precedence rules to prefer identifier over continuation
 
-**Option B**: Core syntax only (what we need for chunking)
-- Pros: Faster, focused on our use case
-- Cons: Less useful to community
+**Decision**: Start without custom scanner. Add only if grammar conflicts prove unresolvable.
 
-**Recommendation**: Start with Option B, extend to Option A over time.
+### 2. Scope: Core vs Full
 
-### 2. Repository Location
+**Chosen**: Core syntax (Option B) — sufficient for AST-aware chunking. Covers:
+- Procedure/function boundaries (critical for chunking quality)
+- Control flow blocks (improved chunk coherence)
+- All expression types (operators, subscripts, calls)
+- Comments and docstrings
 
-**Chosen**: Separate repo (`iterorganization/tree-sitter-gdl`)
-- Community contribution, reusable
-- Published to PyPI as `tree-sitter-gdl`
-- Development fork: `simon-mcintosh/tree-sitter-gdl`
+**Deferred** (extend later for community value):
+- OOP (`obj_new`, `obj->method`, class definitions)
+- Compile options (`compile_opt idl2`, `strictarr`)
+- Format codes
+- SAVE/RESTORE
+- Widget programming
 
-### 3. Custom Scanner
+### 3. tree-sitter-language-pack Inclusion Strategy
 
-IDL has some context-sensitive features (e.g., `end` keyword meaning depends on context). We may need a custom scanner in C.
-
-**Likely needed for:**
-- Context-sensitive `end` (endfor, endif, endelse, etc.)
-- String interpolation edge cases
+**Phase 1**: Standalone `tree-sitter-gdl` PyPI package, custom parser injection in imas-codex.
+**Phase 2**: Submit PR to `tree-sitter-language-pack` for upstream inclusion.
+**Phase 3**: Once merged, remove standalone dep from imas-codex, everything routes through standard path.
 
 ## Next Steps
 
-1. **Repository created**: `github.com/iterorganization/tree-sitter-gdl`
-2. **Development fork**: `github.com/simon-mcintosh/tree-sitter-gdl`
-3. **Discover more samples**: Use MCP `python()` tool to SSH and explore EPFL `.pro` files
-4. **Start Phase 1**: Core grammar implementation
-
-## Appendix: Sample IDL Code
-
-```idl
-;+
-; NAME:
-;   ANALYZE_SHOT
-;
-; PURPOSE:
-;   Analyze TCV shot data and generate plots
-;
-; CALLING SEQUENCE:
-;   analyze_shot, shot_number, /verbose
-;-
-pro analyze_shot, shot, verbose=verbose, output_dir=output_dir
-
-  ; Set defaults
-  if n_elements(output_dir) eq 0 then output_dir = '~/analysis'
-  
-  ; Open MDSplus tree
-  mdsopen, 'tcv_shot', shot
-  
-  ; Get time base
-  time = mdsvalue('\results::r_axis:time')
-  
-  ; Get plasma parameters
-  r_axis = mdsvalue('\results::r_axis')
-  z_axis = mdsvalue('\results::z_axis')
-  ip = mdsvalue('\magnetics::ip')
-  
-  ; Filter data
-  good = where(time gt 0 and time lt 2.0, ngood)
-  if ngood eq 0 then begin
-    print, 'No valid data found'
-    return
-  endif
-  
-  ; Plot results
-  if keyword_set(verbose) then begin
-    window, 0
-    plot, time[good], ip[good], $
-      xtitle='Time [s]', ytitle='Ip [A]', $
-      title='Shot ' + string(shot, format='(i6)')
-  endif
-  
-  ; Save results
-  save, time, r_axis, z_axis, ip, $
-    filename=output_dir + '/shot_' + string(shot, format='(i6)') + '.sav'
-  
-  mdsclose
-  
-end
-```
-
-This sample demonstrates most IDL constructs we need to parse.
+1. **Run `tree-sitter init`** in the `tree-sitter-gdl` repo to scaffold the project
+2. **Study `tree-sitter-matlab`** grammar.js closely — it's the best reference for similar scientific language syntax
+3. **Implement Phase 1** (core expressions, operators, comments)
+4. **Validate with corpus tests** using synthetic IDL patterns modeled on TCV observations
+5. **Do NOT copy any TCV code into the public repo** — all test cases must be synthetic
