@@ -101,3 +101,242 @@ result = obj->compute(x, y)
       (argument_list
         (identifier)
         (identifier)))))
+
+================================================================================
+Struct member assignment
+================================================================================
+
+pro test
+  s.value = 100
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (assignment
+        left: (member_expression
+          (identifier)
+          (identifier))
+        right: (number_literal)))))
+
+================================================================================
+Struct member assignment with chained access
+================================================================================
+
+pro test
+  config.params.shot = 12345
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (assignment
+        left: (member_expression
+          (member_expression
+            (identifier)
+            (identifier))
+          (identifier))
+        right: (number_literal)))))
+
+================================================================================
+Struct member read and write in same procedure
+================================================================================
+
+pro test, s
+  x = s.value
+  s.result = x * 2
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (assignment
+        left: (identifier)
+        right: (member_expression
+          (identifier)
+          (identifier)))
+      (assignment
+        left: (member_expression
+          (identifier)
+          (identifier))
+        right: (binary_expression
+          left: (identifier)
+          right: (number_literal))))))
+
+================================================================================
+System variable assignment
+================================================================================
+
+!null = temporary(data)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (system_variable)
+    right: (call_expression
+      (identifier)
+      (argument_list
+        (identifier)))))
+
+================================================================================
+System variable member assignment
+================================================================================
+
+!p.multi = 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (member_expression
+      (system_variable)
+      (identifier))
+    right: (number_literal)))
+
+================================================================================
+System variable member assignment with array
+================================================================================
+
+!x.range = [0, 100]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (member_expression
+      (system_variable)
+      (identifier))
+    right: (array_literal
+      (number_literal)
+      (number_literal))))
+
+================================================================================
+Parenthesized subscript assignment
+================================================================================
+
+arr(0) = 42
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (call_expression
+      (identifier)
+      (argument_list
+        (number_literal)))
+    right: (number_literal)))
+
+================================================================================
+Parenthesized multi-dimensional subscript assignment
+================================================================================
+
+matrix(i, j) = 1.0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (call_expression
+      (identifier)
+      (argument_list
+        (identifier)
+        (identifier)))
+    right: (number_literal)))
+
+================================================================================
+Dot method procedure call
+================================================================================
+
+pro test, obj
+  obj.Draw
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (procedure_call
+        (member_expression
+          (identifier)
+          (identifier))))))
+
+================================================================================
+Dot method procedure call with args
+================================================================================
+
+pro test, obj
+  obj.Save, filename, border=10
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (procedure_call
+        (member_expression
+          (identifier)
+          (identifier))
+        (argument_list
+          (identifier)
+          (keyword_argument
+            (identifier)
+            (number_literal)))))))
+
+================================================================================
+Dot method function call
+================================================================================
+
+x = obj.Count()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (call_expression
+      (member_expression
+        (identifier)
+        (identifier)))))
+
+================================================================================
+Chained dot method call
+================================================================================
+
+pro test, p
+  p.window.SetCurrent
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (procedure_call
+        (member_expression
+          (member_expression
+            (identifier)
+            (identifier))
+          (identifier))))))

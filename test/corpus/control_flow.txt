@@ -93,3 +93,32 @@ endelse
         (assignment
           left: (identifier)
           right: (number_literal))))))
+
+================================================================================
+Generic end as block closer
+================================================================================
+
+if count gt 0 then begin
+  total = total + count
+end else begin
+  total = 0
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (if_statement
+    condition: (binary_expression
+      left: (identifier)
+      right: (number_literal))
+    (body
+      (assignment
+        left: (identifier)
+        right: (binary_expression
+          left: (identifier)
+          right: (identifier))))
+    (else_clause
+      (body
+        (assignment
+          left: (identifier)
+          right: (number_literal))))))

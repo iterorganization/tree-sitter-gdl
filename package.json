@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-gdl",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GDL/IDL grammar for tree-sitter",
   "repository": "github:iterorganization/tree-sitter-gdl",
   "license": "MIT",

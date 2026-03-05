@@ -1,0 +1,131 @@
+================================================================================
+Pointer dereference
+================================================================================
+
+x = *p
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (unary_expression
+      (identifier))))
+
+================================================================================
+Pointer dereference subscript
+================================================================================
+
+x = (*p)[0]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (parenthesized_expression
+        (unary_expression
+          (identifier)))
+      (argument_list
+        (number_literal)))))
+
+================================================================================
+Pointer dereference assignment
+================================================================================
+
+*p = 42
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (unary_expression
+      (identifier))
+    right: (number_literal)))
+
+================================================================================
+Pointer dereference in procedure
+================================================================================
+
+pro test, ptr
+  data = *ptr
+  if data eq !null then return
+  *ptr = reform(data)
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (assignment
+        left: (identifier)
+        right: (unary_expression
+          (identifier)))
+      (if_statement
+        condition: (binary_expression
+          left: (identifier)
+          right: (system_variable))
+        (return_statement))
+      (assignment
+        left: (unary_expression
+          (identifier))
+        right: (call_expression
+          (identifier)
+          (argument_list
+            (identifier)))))))
+
+================================================================================
+Pointer dereference with member access
+================================================================================
+
+x = (*self.data)[0]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (subscript_expression
+      (parenthesized_expression
+        (unary_expression
+          (member_expression
+            (identifier)
+            (identifier))))
+      (argument_list
+        (number_literal)))))
+
+================================================================================
+Pointer new and free
+================================================================================
+
+pro test
+  p = ptr_new(42)
+  x = *p
+  ptr_free, p
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (assignment
+        left: (identifier)
+        right: (call_expression
+          (identifier)
+          (argument_list
+            (number_literal))))
+      (assignment
+        left: (identifier)
+        right: (unary_expression
+          (identifier)))
+      (procedure_call
+        (identifier)
+        (argument_list
+          (identifier))))))

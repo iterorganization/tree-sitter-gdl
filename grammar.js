@@ -39,11 +39,14 @@ module.exports = grammar({
     /\s/,
     $.comment,
     $._line_continuation,
+    '&',
   ],
 
   word: $ => $.identifier,
 
   conflicts: $ => [
+    [$.assignment, $._expression],
+    [$._expression, $.keyword_argument],
   ],
 
   rules: {
@@ -58,6 +61,7 @@ module.exports = grammar({
     _simple_statement: $ => choice(
       $.assignment,
       $.procedure_call,
+      $.method_procedure_call,
       $.if_statement,
       $.for_statement,
       $.foreach_statement,
@@ -80,14 +84,27 @@ module.exports = grammar({
 
     // Assignment
     assignment: $ => prec.right(seq(
-      field('left', choice($.identifier, $.subscript_expression)),
+      field('left', choice(
+        $.identifier,
+        $.subscript_expression,
+        $.member_expression,
+        $.system_variable,
+        $.unary_expression,
+        $.call_expression,
+      )),
       field('operator', choice('=', '+=', '-=', '*=', '/=')),
       field('right', $._expression),
     )),
 
+    qualified_name: $ => seq(
+      field('class', $.identifier),
+      '::',
+      field('method', $.identifier),
+    ),
+
     procedure_definition: $ => seq(
       kw('pro'),
-      field('name', $.identifier),
+      field('name', choice($.identifier, $.qualified_name)),
       optional(seq(',', $.parameter_list)),
       optional($.body),
       kw('end'),
@@ -95,7 +112,7 @@ module.exports = grammar({
 
     function_definition: $ => seq(
       kw('function'),
-      field('name', $.identifier),
+      field('name', choice($.identifier, $.qualified_name)),
       optional(seq(',', $.parameter_list)),
       optional($.body),
       kw('end'),
@@ -135,7 +152,7 @@ module.exports = grammar({
         seq(
           kw('begin'),
           optional($.body),
-          kw('endif'),
+          choice(kw('endif'), kw('end')),
           optional($.else_clause),
         ),
         // Inline form: if ... then stmt [else stmt]
@@ -153,7 +170,7 @@ module.exports = grammar({
         seq(
           kw('begin'),
           optional($.body),
-          kw('endelse'),
+          choice(kw('endelse'), kw('end')),
         ),
         // Inline form: else stmt
         $._simple_statement,
@@ -174,7 +191,7 @@ module.exports = grammar({
       optional(seq(',', $._expression)),
       kw('do'),
       choice(
-        seq(kw('begin'), optional($.body), kw('endfor')),
+        seq(kw('begin'), optional($.body), choice(kw('endfor'), kw('end'))),
         $._simple_statement,
       ),
     ),
@@ -187,7 +204,7 @@ module.exports = grammar({
       optional(seq(',', $.identifier)),
       kw('do'),
       choice(
-        seq(kw('begin'), optional($.body), kw('endfor')),
+        seq(kw('begin'), optional($.body), choice(kw('endfor'), kw('end'))),
         $._simple_statement,
       ),
     ),
@@ -197,7 +214,7 @@ module.exports = grammar({
       field('condition', $._expression),
       kw('do'),
       choice(
-        seq(kw('begin'), optional($.body), kw('endwhile')),
+        seq(kw('begin'), optional($.body), choice(kw('endwhile'), kw('end'))),
         $._simple_statement,
       ),
     ),
@@ -205,7 +222,7 @@ module.exports = grammar({
     repeat_statement: $ => seq(
       kw('repeat'),
       choice(
-        seq(kw('begin'), optional($.body), kw('endrep')),
+        seq(kw('begin'), optional($.body), choice(kw('endrep'), kw('end'))),
         $._simple_statement,
       ),
       kw('until'),
@@ -300,7 +317,7 @@ module.exports = grammar({
     // =====================================================================
 
     procedure_call: $ => prec.right(-1, seq(
-      $.identifier,
+      choice($.identifier, $.member_expression),
       optional(seq(',', $.argument_list)),
     )),
 
@@ -326,7 +343,7 @@ module.exports = grammar({
     ),
 
     call_expression: $ => prec(PREC.CALL, seq(
-      $.identifier,
+      choice($.identifier, $.member_expression),
       '(',
       optional($.argument_list),
       ')',
@@ -352,7 +369,7 @@ module.exports = grammar({
     ),
 
     keyword_argument: $ => choice(
-      seq($.identifier, '=', $._expression),
+      prec.dynamic(1, seq($.identifier, '=', $._expression)),
       seq('/', $.identifier),
     ),
 
@@ -397,12 +414,20 @@ module.exports = grammar({
       $.identifier,
     )),
 
-    // Object method call: obj->method(args) or obj->method
+    // Object method call: obj->method(args) — expression (returns value)
     method_call: $ => prec.left(PREC.METHOD, seq(
       $._expression,
       '->',
       $.identifier,
       seq('(', optional($.argument_list), ')'),
+    )),
+
+    // Object method procedure call: obj->method[, args] — statement (no return)
+    method_procedure_call: $ => prec.right(PREC.METHOD, seq(
+      $._expression,
+      '->',
+      $.identifier,
+      optional(seq(',', $.argument_list)),
     )),
 
     // Ternary: cond ? then_expr : else_expr
@@ -433,6 +458,9 @@ module.exports = grammar({
         ['*', PREC.MULTIPLICATION],
         ['/', PREC.MULTIPLICATION],
         [kw('mod'), PREC.MULTIPLICATION],
+        ['=', PREC.COMPARISON],
+        ['&&', PREC.AND],
+        ['||', PREC.OR],
         ['^', PREC.EXPONENTIATION],
         ['#', PREC.MATRIX],
         ['##', PREC.MATRIX],
@@ -451,6 +479,7 @@ module.exports = grammar({
       prec(PREC.UNARY, seq('+', $._expression)),
       prec(PREC.NOT, seq(kw('not'), $._expression)),
       prec(PREC.UNARY, seq('~', $._expression)),
+      prec(PREC.UNARY, seq('*', $._expression)),
     ),
 
     // Parenthesized expressions
@@ -492,11 +521,11 @@ module.exports = grammar({
     // Comments
     comment: $ => token(seq(';', /[^\n]*/)),
 
-    // Line continuation
+    // Line continuation — $ at end of line, optionally followed by comment
     _line_continuation: $ => token(seq(
       '$',
       /[ \t]*/,
-      optional(seq(';', /[^\n]*/)),
+      optional(seq(/[;!]/, /[^\n]*/)),
       /\n/,
     )),
   },
