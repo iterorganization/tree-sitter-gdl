@@ -4,8 +4,18 @@
 (procedure_definition
   name: (identifier) @function)
 
+(procedure_definition
+  name: (qualified_name
+    class: (identifier) @type
+    method: (identifier) @function))
+
 (function_definition
   name: (identifier) @function)
+
+(function_definition
+  name: (qualified_name
+    class: (identifier) @type
+    method: (identifier) @function))
 
 ; Function calls
 (call_expression
@@ -13,6 +23,10 @@
 
 ; Method calls
 (method_call
+  (identifier) @function.method)
+
+; Method procedure calls
+(method_procedure_call
   (identifier) @function.method)
 
 ; Procedure calls
@@ -55,10 +69,10 @@
 
 ; Punctuation
 ["(" ")" "[" "]" "{" "}"] @punctuation.bracket
-["," ":" "." "->" "@"] @punctuation.delimiter
+["," ":" "::" "." "->" "@"] @punctuation.delimiter
 
 ; Operators
-["+" "-" "*" "/" "^" "#" "##" "=" "+=" "-=" "*=" "/=" "?" "~" "<" ">"] @operator
+["+" "-" "*" "/" "^" "#" "##" "=" "+=" "-=" "*=" "/=" "?" "~" "<" ">" "&&" "||"] @operator
 
 ; Identifiers (catch-all, lowest priority)
 (identifier) @variable

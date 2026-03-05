@@ -239,3 +239,54 @@ result = (a + b) * (c - d) / (e ^ 2)
         (binary_expression
           left: (identifier)
           right: (number_literal))))))
+
+================================================================================
+Equals sign as comparison in IF condition
+================================================================================
+
+pro test
+  if (x = 1) then print, 'one'
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (if_statement
+        condition: (parenthesized_expression
+          (binary_expression
+            left: (identifier)
+            right: (number_literal)))
+        (procedure_call
+          (identifier)
+          (argument_list
+            (string_literal)))))))
+
+================================================================================
+Equals sign as comparison in while condition
+================================================================================
+
+pro test
+  while (status = 'running') do begin
+    wait, 1
+  endwhile
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (while_statement
+        condition: (parenthesized_expression
+          (binary_expression
+            left: (identifier)
+            right: (string_literal)))
+        (body
+          (procedure_call
+            (identifier)
+            (argument_list
+              (number_literal))))))))

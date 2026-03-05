@@ -154,11 +154,27 @@
         "required": true,
         "types": [
           {
+            "type": "call_expression",
+            "named": true
+          },
+          {
             "type": "identifier",
             "named": true
           },
           {
+            "type": "member_expression",
+            "named": true
+          },
+          {
             "type": "subscript_expression",
+            "named": true
+          },
+          {
+            "type": "system_variable",
+            "named": true
+          },
+          {
+            "type": "unary_expression",
             "named": true
           }
         ]
@@ -347,6 +363,10 @@
             "named": false
           },
           {
+            "type": "&&",
+            "named": false
+          },
+          {
             "type": "*",
             "named": false
           },
@@ -367,11 +387,19 @@
             "named": false
           },
           {
+            "type": "=",
+            "named": false
+          },
+          {
             "type": ">",
             "named": false
           },
           {
             "type": "^",
+            "named": false
+          },
+          {
+            "type": "||",
             "named": false
           }
         ]
@@ -489,6 +517,10 @@
           "named": true
         },
         {
+          "type": "method_procedure_call",
+          "named": true
+        },
+        {
           "type": "on_ioerror",
           "named": true
         },
@@ -529,6 +561,10 @@
         },
         {
           "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "member_expression",
           "named": true
         }
       ]
@@ -608,6 +644,10 @@
         },
         {
           "type": "method_call",
+          "named": true
+        },
+        {
+          "type": "method_procedure_call",
           "named": true
         },
         {
@@ -719,6 +759,10 @@
         },
         {
           "type": "label",
+          "named": true
+        },
+        {
+          "type": "method_procedure_call",
           "named": true
         },
         {
@@ -917,6 +961,10 @@
           "named": true
         },
         {
+          "type": "method_procedure_call",
+          "named": true
+        },
+        {
           "type": "on_ioerror",
           "named": true
         },
@@ -1017,6 +1065,10 @@
         },
         {
           "type": "method_call",
+          "named": true
+        },
+        {
+          "type": "method_procedure_call",
           "named": true
         },
         {
@@ -1155,6 +1207,10 @@
           "named": true
         },
         {
+          "type": "method_procedure_call",
+          "named": true
+        },
+        {
           "type": "number_literal",
           "named": true
         },
@@ -1223,6 +1279,10 @@
         "types": [
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "qualified_name",
             "named": true
           }
         ]
@@ -1375,6 +1435,10 @@
         },
         {
           "type": "label",
+          "named": true
+        },
+        {
+          "type": "method_procedure_call",
           "named": true
         },
         {
@@ -1655,6 +1719,77 @@
     }
   },
   {
+    "type": "method_procedure_call",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "argument_list",
+          "named": true
+        },
+        {
+          "type": "array_literal",
+          "named": true
+        },
+        {
+          "type": "binary_expression",
+          "named": true
+        },
+        {
+          "type": "call_expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "member_expression",
+          "named": true
+        },
+        {
+          "type": "method_call",
+          "named": true
+        },
+        {
+          "type": "number_literal",
+          "named": true
+        },
+        {
+          "type": "parenthesized_expression",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        },
+        {
+          "type": "struct_expression",
+          "named": true
+        },
+        {
+          "type": "subscript_expression",
+          "named": true
+        },
+        {
+          "type": "system_variable",
+          "named": true
+        },
+        {
+          "type": "ternary_expression",
+          "named": true
+        },
+        {
+          "type": "unary_expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "on_ioerror",
     "named": true,
     "fields": {},
@@ -1774,6 +1909,10 @@
         {
           "type": "identifier",
           "named": true
+        },
+        {
+          "type": "member_expression",
+          "named": true
         }
       ]
     }
@@ -1788,6 +1927,10 @@
         "types": [
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "qualified_name",
             "named": true
           }
         ]
@@ -1806,6 +1949,32 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "qualified_name",
+    "named": true,
+    "fields": {
+      "class": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "method": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -1995,6 +2164,10 @@
           "named": true
         },
         {
+          "type": "method_procedure_call",
+          "named": true
+        },
+        {
           "type": "on_ioerror",
           "named": true
         },
@@ -2139,6 +2312,10 @@
         },
         {
           "type": "label",
+          "named": true
+        },
+        {
+          "type": "method_procedure_call",
           "named": true
         },
         {
@@ -2677,6 +2854,10 @@
           "named": true
         },
         {
+          "type": "method_procedure_call",
+          "named": true
+        },
+        {
           "type": "on_ioerror",
           "named": true
         },
@@ -2722,6 +2903,10 @@
   },
   {
     "type": "##",
+    "named": false
+  },
+  {
+    "type": "&&",
     "named": false
   },
   {
@@ -2789,6 +2974,10 @@
     "named": false
   },
   {
+    "type": "::",
+    "named": false
+  },
+  {
     "type": "<",
     "named": false
   },
@@ -2838,6 +3027,10 @@
   },
   {
     "type": "{",
+    "named": false
+  },
+  {
+    "type": "||",
     "named": false
   },
   {

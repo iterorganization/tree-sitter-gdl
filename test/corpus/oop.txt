@@ -1,0 +1,237 @@
+================================================================================
+Arrow method procedure call no args
+================================================================================
+
+pro test, obj
+  obj->Draw
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (method_procedure_call
+        (identifier)
+        (identifier)))))
+
+================================================================================
+Arrow method procedure call with args
+================================================================================
+
+pro test, obj
+  obj->SetProperty, color=255, /hide
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (method_procedure_call
+        (identifier)
+        (identifier)
+        (argument_list
+          (keyword_argument
+            (identifier)
+            (number_literal))
+          (keyword_argument
+            (identifier)))))))
+
+================================================================================
+Arrow method on member expression
+================================================================================
+
+pro test
+  self.window->Draw
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (method_procedure_call
+        (member_expression
+          (identifier)
+          (identifier))
+        (identifier)))))
+
+================================================================================
+Arrow method function call returns value
+================================================================================
+
+x = obj->GetValue()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (method_call
+      (identifier)
+      (identifier))))
+
+================================================================================
+Arrow method function call with args
+================================================================================
+
+name = obj->GetProperty('title')
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    left: (identifier)
+    right: (method_call
+      (identifier)
+      (identifier)
+      (argument_list
+        (string_literal)))))
+
+================================================================================
+Class method definition with double colon
+================================================================================
+
+function MyClass::Init, data
+  self.data = ptr_new(data)
+  return, 1
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (qualified_name
+      class: (identifier)
+      method: (identifier))
+    (parameter_list
+      (identifier))
+    (body
+      (assignment
+        left: (member_expression
+          (identifier)
+          (identifier))
+        right: (call_expression
+          (identifier)
+          (argument_list
+            (identifier))))
+      (return_statement
+        (number_literal)))))
+
+================================================================================
+Class procedure definition with double colon
+================================================================================
+
+pro MyClass::Cleanup
+  ptr_free, self.data
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (qualified_name
+      class: (identifier)
+      method: (identifier))
+    (body
+      (procedure_call
+        (identifier)
+        (argument_list
+          (member_expression
+            (identifier)
+            (identifier)))))))
+
+================================================================================
+Class define procedure
+================================================================================
+
+pro MyClass__define
+  struct = {MyClass, data: ptr_new(), name: ''}
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (body
+      (assignment
+        left: (identifier)
+        right: (struct_expression
+          name: (identifier)
+          (struct_field
+            name: (identifier)
+            (call_expression
+              (identifier)))
+          (struct_field
+            name: (identifier)
+            (string_literal)))))))
+
+================================================================================
+Class method with self member access
+================================================================================
+
+function Reader::GetData, channel
+  return, (*self.data)[channel]
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (qualified_name
+      class: (identifier)
+      method: (identifier))
+    (parameter_list
+      (identifier))
+    (body
+      (return_statement
+        (subscript_expression
+          (parenthesized_expression
+            (unary_expression
+              (member_expression
+                (identifier)
+                (identifier))))
+          (argument_list
+            (identifier)))))))
+
+================================================================================
+Method procedure call chain
+================================================================================
+
+pro test, view
+  view->GetModel, model
+  model->SetProperty, color=[255, 0, 0]
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (procedure_definition
+    name: (identifier)
+    (parameter_list
+      (identifier))
+    (body
+      (method_procedure_call
+        (identifier)
+        (identifier)
+        (argument_list
+          (identifier)))
+      (method_procedure_call
+        (identifier)
+        (identifier)
+        (argument_list
+          (keyword_argument
+            (identifier)
+            (array_literal
+              (number_literal)
+              (number_literal)
+              (number_literal))))))))

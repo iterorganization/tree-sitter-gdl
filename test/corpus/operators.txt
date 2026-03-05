@@ -302,3 +302,37 @@ x = -a
     (identifier)
     (unary_expression
       (identifier))))
+
+================================================================================
+Shortcircuit AND
+================================================================================
+
+x = a gt 0 && b gt 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (identifier)
+        (number_literal))
+      (binary_expression
+        (identifier)
+        (number_literal)))))
+
+================================================================================
+Shortcircuit OR
+================================================================================
+
+x = a || b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (assignment
+    (identifier)
+    (binary_expression
+      (identifier)
+      (identifier))))
